@@ -1,27 +1,28 @@
-# GENERATED from /tmp/claude-1000/-home-samsheen-projects-data-bigquery-dbt/8c87da47-9d8c-4450-9bae-ecbed16443bf/scratchpad/deploy.src.yml by transform.py - do not edit
+# GENERATED from data-bigquery-dbt .github/workflows/deploy.yml by transform.py - do not edit
 name: Deploy
-run-name: ${{ github.event_name == 'workflow_dispatch' && format('Deploy {0} (manual, run by {1})', inputs.target, github.triggering_actor) || format('Deploy staging and production (merged by {0})', github.actor) }}
+run-name: ${{ github.event_name == 'workflow_dispatch' && format('Deploy {0} (manual, run by {1})', inputs.staging && inputs.production && 'staging and production' || inputs.staging && 'staging' || inputs.production && 'production' || 'nothing', github.triggering_actor) || format('Deploy staging and production (merged by {0})', github.actor) }}
 'on':
   push:
     branches:
     - main
   workflow_dispatch:
     inputs:
-      target:
-        description: What to deploy (from the head of main)
-        type: choice
-        required: true
-        default: staging
-        options:
-        - staging
-        - production
-        - staging and production
+      staging:
+        description: Staging
+        type: boolean
+        default: true
+      production:
+        description: Production
+        type: boolean
+        default: false
 permissions:
   id-token: write
   contents: read
+env:
+  DEPLOY_TARGET: ${{ github.event_name != 'workflow_dispatch' && 'staging and production' || inputs.staging && inputs.production && 'staging and production' || inputs.staging && 'staging' || inputs.production && 'production' || 'nothing' }}
 jobs:
   deploy-staging:
-    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || inputs.target != 'production')
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || inputs.staging)
     runs-on: ubuntu-latest
     concurrency:
       group: dbt-staging
@@ -31,11 +32,10 @@ jobs:
       shell: bash
       env:
         EVENT: ${{ github.event_name }}
-        TARGET: ${{ inputs.target || 'staging and production' }}
         STARTED_BY: ${{ github.actor }}
         RUN_BY: ${{ github.triggering_actor }}
         SHA: ${{ github.sha }}
-      run: "{\n  echo \"### Staging deploy\"\n  echo \"| | |\"\n  echo \"|---|---|\"\n  echo \"| Trigger | $EVENT |\"\n  echo \"| Target | $TARGET |\"\n  echo \"| Started by | $STARTED_BY |\"\n  echo \"| Run by | $RUN_BY |\"\n  echo \"| Commit | $SHA |\"\n} | tee -a \"$GITHUB_STEP_SUMMARY\"\n"
+      run: "{\n  echo \"### Staging deploy\"\n  echo \"| | |\"\n  echo \"|---|---|\"\n  echo \"| Trigger | $EVENT |\"\n  echo \"| Target | $DEPLOY_TARGET |\"\n  echo \"| Started by | $STARTED_BY |\"\n  echo \"| Run by | $RUN_BY |\"\n  echo \"| Commit | $SHA |\"\n} | tee -a \"$GITHUB_STEP_SUMMARY\"\n"
     - name: Checkout code
       uses: actions/checkout@v5
     - name: Install dependencies
@@ -62,7 +62,7 @@ jobs:
         path: target/
   deploy-production:
     needs: deploy-staging
-    if: "!cancelled() && github.ref == 'refs/heads/main' && (\n  (inputs.target == 'production' && needs.deploy-staging.result == 'skipped') ||\n  (inputs.target != 'production' && needs.deploy-staging.result == 'success')\n)"
+    if: "!cancelled() && github.ref == 'refs/heads/main' && (\n  (github.event_name == 'push' && needs.deploy-staging.result == 'success') ||\n  (inputs.production && inputs.staging && needs.deploy-staging.result == 'success') ||\n  (inputs.production && !inputs.staging && needs.deploy-staging.result == 'skipped')\n)"
     runs-on: ubuntu-latest
     environment: production
     concurrency:
@@ -73,11 +73,10 @@ jobs:
       shell: bash
       env:
         EVENT: ${{ github.event_name }}
-        TARGET: ${{ inputs.target || 'staging and production' }}
         STARTED_BY: ${{ github.actor }}
         RUN_BY: ${{ github.triggering_actor }}
         SHA: ${{ github.sha }}
-      run: "{\n  echo \"### Production deploy\"\n  echo \"| | |\"\n  echo \"|---|---|\"\n  echo \"| Trigger | $EVENT |\"\n  echo \"| Target | $TARGET |\"\n  echo \"| Started by | $STARTED_BY |\"\n  echo \"| Run by | $RUN_BY |\"\n  echo \"| Commit | $SHA |\"\n} | tee -a \"$GITHUB_STEP_SUMMARY\"\n"
+      run: "{\n  echo \"### Production deploy\"\n  echo \"| | |\"\n  echo \"|---|---|\"\n  echo \"| Trigger | $EVENT |\"\n  echo \"| Target | $DEPLOY_TARGET |\"\n  echo \"| Started by | $STARTED_BY |\"\n  echo \"| Run by | $RUN_BY |\"\n  echo \"| Commit | $SHA |\"\n} | tee -a \"$GITHUB_STEP_SUMMARY\"\n"
     - name: Verify commit SHA is latest
       uses: actions/github-script@v6
       with:
