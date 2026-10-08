@@ -35,7 +35,8 @@ jobs:
         STARTED_BY: ${{ github.actor }}
         RUN_BY: ${{ github.triggering_actor }}
         SHA: ${{ github.sha }}
-      run: "{\n  echo \"### Staging deploy\"\n  echo \"| | |\"\n  echo \"|---|---|\"\n  echo \"| Trigger | $EVENT |\"\n  echo \"| Target | $DEPLOY_TARGET |\"\n  echo \"| Started by | $STARTED_BY |\"\n  echo \"| Run by | $RUN_BY |\"\n  echo \"| Commit | $SHA |\"\n} | tee -a \"$GITHUB_STEP_SUMMARY\"\n"
+        COMMIT_URL: ${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}
+      run: "{\n  echo \"### Staging deploy\"\n  echo \"| Trigger | Target | Started by | Run by | Commit |\"\n  echo \"|---|---|---|---|---|\"\n  echo \"| $EVENT | $DEPLOY_TARGET | $STARTED_BY | $RUN_BY | [\\`${SHA:0:7}\\`]($COMMIT_URL) |\"\n} | tee -a \"$GITHUB_STEP_SUMMARY\"\n"
     - name: Checkout code
       uses: actions/checkout@v5
     - name: Install dependencies
@@ -76,7 +77,8 @@ jobs:
         STARTED_BY: ${{ github.actor }}
         RUN_BY: ${{ github.triggering_actor }}
         SHA: ${{ github.sha }}
-      run: "{\n  echo \"### Production deploy\"\n  echo \"| | |\"\n  echo \"|---|---|\"\n  echo \"| Trigger | $EVENT |\"\n  echo \"| Target | $DEPLOY_TARGET |\"\n  echo \"| Started by | $STARTED_BY |\"\n  echo \"| Run by | $RUN_BY |\"\n  echo \"| Commit | $SHA |\"\n} | tee -a \"$GITHUB_STEP_SUMMARY\"\n"
+        COMMIT_URL: ${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}
+      run: "{\n  echo \"### Production deploy\"\n  echo \"| Trigger | Target | Started by | Run by | Commit |\"\n  echo \"|---|---|---|---|---|\"\n  echo \"| $EVENT | $DEPLOY_TARGET | $STARTED_BY | $RUN_BY | [\\`${SHA:0:7}\\`]($COMMIT_URL) |\"\n} | tee -a \"$GITHUB_STEP_SUMMARY\"\n"
     - name: Verify commit SHA is latest
       uses: actions/github-script@v6
       with:
@@ -115,7 +117,7 @@ jobs:
     - name: Deploy to Production (Copy Validated Tables)
       if: success()
       shell: bash
-      run: "set -euo pipefail\necho \"STUB_START copy $(date -u +%s.%N) run=$GITHUB_RUN_ID attempt=$GITHUB_RUN_ATTEMPT job=$GITHUB_JOB\"\nif [ -f test-control/copy-sleep ]; then sleep \"$(cat test-control/copy-sleep)\"; fi\necho \"| Copied | $DBT_CANDIDATE_DATASET at $GITHUB_SHA |\" >> \"$GITHUB_STEP_SUMMARY\"\nif [ -f test-control/copy-fail ]; then\n  echo \"STUB_FAIL copy\"\n  echo \"STUB_END copy $(date -u +%s.%N)\"\n  exit 1\nfi\necho \"STUB_END copy $(date -u +%s.%N)\"\n"
+      run: "set -euo pipefail\necho \"STUB_START copy $(date -u +%s.%N) run=$GITHUB_RUN_ID attempt=$GITHUB_RUN_ATTEMPT job=$GITHUB_JOB\"\nif [ -f test-control/copy-sleep ]; then sleep \"$(cat test-control/copy-sleep)\"; fi\necho \"Copied \\`$DBT_CANDIDATE_DATASET\\` into production (stub)\" >> \"$GITHUB_STEP_SUMMARY\"\nif [ -f test-control/copy-fail ]; then\n  echo \"STUB_FAIL copy\"\n  echo \"STUB_END copy $(date -u +%s.%N)\"\n  exit 1\nfi\necho \"STUB_END copy $(date -u +%s.%N)\"\n"
     - name: Cleanup Candidate Datasets
       shell: bash
       run: 'echo "stubbed: Cleanup Candidate Datasets"'

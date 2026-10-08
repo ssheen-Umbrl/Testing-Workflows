@@ -78,7 +78,7 @@ def transform_step(step, job):
             **step,
             "run": stub(
                 "copy",
-                'echo "| Copied | $DBT_CANDIDATE_DATASET at $GITHUB_SHA |" >> "$GITHUB_STEP_SUMMARY"',
+                'echo "Copied \`$DBT_CANDIDATE_DATASET\` into production (stub)" >> "$GITHUB_STEP_SUMMARY"',
             ),
         }
     return step
