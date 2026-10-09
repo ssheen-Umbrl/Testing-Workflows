@@ -95,7 +95,9 @@ def main(src, dst):
         job["runs-on"] = "ubuntu-latest"
         job["steps"] = [transform_step(s, job_id) for s in job["steps"]]
         names = [s.get("name") for s in job["steps"]]
-        assert "Checkout code" in names, job_id
+        # approve-production is only an approval gate, it has no checkout
+        if job_id != "approve-production":
+            assert "Checkout code" in names, job_id
     with open(dst, "w") as f:
         f.write(f"# GENERATED from {src} by transform.py - do not edit\n")
         yaml.safe_dump(wf, f, sort_keys=False, width=1000)

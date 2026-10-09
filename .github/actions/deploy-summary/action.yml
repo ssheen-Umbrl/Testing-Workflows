@@ -1,0 +1,34 @@
+name: Deploy Summary
+description: >-
+  Record who triggered a deploy in the job's step summary. On a re-run,
+  "Run by" is the person who re-ran it and "Started by" the person who
+  started the original.
+
+inputs:
+  title:
+    description: "Heading for the summary, e.g. Staging deploy"
+    required: true
+  target:
+    description: "Target Environment, e.g. staging and production"
+    required: true
+
+runs:
+  using: "composite"
+  steps:
+    - name: Record who triggered this deploy
+      shell: bash
+      env:
+        TITLE: ${{ inputs.title }}
+        TARGET: ${{ inputs.target }}
+        EVENT: ${{ github.event_name }}
+        STARTED_BY: ${{ github.actor }}
+        RUN_BY: ${{ github.triggering_actor }}
+        SHA: ${{ github.sha }}
+        COMMIT_URL: ${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}
+      run: |
+        {
+          echo "### $TITLE"
+          echo "| Trigger | Target | Started by | Run by | Commit |"
+          echo "|---|---|---|---|---|"
+          echo "| $EVENT | $TARGET | $STARTED_BY | $RUN_BY | [\`${SHA:0:7}\`]($COMMIT_URL) |"
+        } | tee -a "$GITHUB_STEP_SUMMARY"

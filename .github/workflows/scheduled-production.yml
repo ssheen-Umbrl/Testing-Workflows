@@ -15,17 +15,13 @@ jobs:
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
     steps:
-    - name: Record who triggered this deploy
-      shell: bash
-      env:
-        EVENT: ${{ github.event_name }}
-        STARTED_BY: ${{ github.actor }}
-        RUN_BY: ${{ github.triggering_actor }}
-        SHA: ${{ github.sha }}
-        COMMIT_URL: ${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}
-      run: "{\n  echo \"### Production deploy (scheduled workflow)\"\n  echo \"| Trigger | Started by | Run by | Commit |\"\n  echo \"|---|---|---|---|\"\n  echo \"| $EVENT | $STARTED_BY | $RUN_BY | [\\`${SHA:0:7}\\`]($COMMIT_URL) |\"\n} | tee -a \"$GITHUB_STEP_SUMMARY\"\n"
     - name: Checkout code
       uses: actions/checkout@v5
+    - name: Record who triggered this deploy
+      uses: ./.github/actions/deploy-summary
+      with:
+        title: Production deploy (scheduled workflow)
+        target: production
     - name: Install dependencies
       shell: bash
       run: 'echo "stubbed: Install dependencies"'

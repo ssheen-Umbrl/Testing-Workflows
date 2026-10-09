@@ -26,19 +26,15 @@ jobs:
     runs-on: ubuntu-latest
     concurrency:
       group: dbt-staging
-      cancel-in-progress: true
+      cancel-in-progress: ${{ github.event_name == 'push' }}
     steps:
-    - name: Record who triggered this deploy
-      shell: bash
-      env:
-        EVENT: ${{ github.event_name }}
-        STARTED_BY: ${{ github.actor }}
-        RUN_BY: ${{ github.triggering_actor }}
-        SHA: ${{ github.sha }}
-        COMMIT_URL: ${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}
-      run: "{\n  echo \"### Staging deploy\"\n  echo \"| Trigger | Target | Started by | Run by | Commit |\"\n  echo \"|---|---|---|---|---|\"\n  echo \"| $EVENT | $DEPLOY_TARGET | $STARTED_BY | $RUN_BY | [\\`${SHA:0:7}\\`]($COMMIT_URL) |\"\n} | tee -a \"$GITHUB_STEP_SUMMARY\"\n"
     - name: Checkout code
       uses: actions/checkout@v5
+    - name: Record who triggered this deploy
+      uses: ./.github/actions/deploy-summary
+      with:
+        title: Staging deploy
+        target: ${{ env.DEPLOY_TARGET }}
     - name: Install dependencies
       shell: bash
       run: 'echo "stubbed: Install dependencies"'
@@ -61,30 +57,33 @@ jobs:
       with:
         name: dbt-target-staging
         path: target/
-  deploy-production:
+  approve-production:
     needs: deploy-staging
     if: "!cancelled() && github.ref == 'refs/heads/main' && (\n  (github.event_name == 'push' && needs.deploy-staging.result == 'success') ||\n  (inputs.production && inputs.staging && needs.deploy-staging.result == 'success') ||\n  (inputs.production && !inputs.staging && needs.deploy-staging.result == 'skipped')\n)"
     runs-on: ubuntu-latest
     environment: production
+    steps:
+    - name: Approved
+      run: echo "Production deploy approved"
+  deploy-production:
+    needs: approve-production
+    if: '!cancelled() && needs.approve-production.result == ''success'''
+    runs-on: ubuntu-latest
     concurrency:
       group: dbt-production
       cancel-in-progress: false
     steps:
+    - name: Checkout code
+      uses: actions/checkout@v5
     - name: Record who triggered this deploy
-      shell: bash
-      env:
-        EVENT: ${{ github.event_name }}
-        STARTED_BY: ${{ github.actor }}
-        RUN_BY: ${{ github.triggering_actor }}
-        SHA: ${{ github.sha }}
-        COMMIT_URL: ${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}
-      run: "{\n  echo \"### Production deploy\"\n  echo \"| Trigger | Target | Started by | Run by | Commit |\"\n  echo \"|---|---|---|---|---|\"\n  echo \"| $EVENT | $DEPLOY_TARGET | $STARTED_BY | $RUN_BY | [\\`${SHA:0:7}\\`]($COMMIT_URL) |\"\n} | tee -a \"$GITHUB_STEP_SUMMARY\"\n"
+      uses: ./.github/actions/deploy-summary
+      with:
+        title: Production deploy
+        target: ${{ env.DEPLOY_TARGET }}
     - name: Verify commit SHA is latest
       uses: actions/github-script@v6
       with:
         script: "const { data: mainBranch } = await github.rest.repos.getBranch({\n  owner: context.repo.owner,\n  repo: context.repo.repo,\n  branch: 'main'\n});\n\nconst latestSha = mainBranch.commit.sha;\nconst runSha = context.sha;\n\nif (runSha !== latestSha) {\n  core.setFailed(`Error: Commit ${runSha} is not the latest on main (${latestSha}).`);\n} else {\n  console.log(`Commit ${runSha} is the latest on main.`);\n}\n"
-    - name: Checkout code
-      uses: actions/checkout@v5
     - name: Install dependencies
       shell: bash
       run: 'echo "stubbed: Install dependencies"'
